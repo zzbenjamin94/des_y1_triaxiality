@@ -17,9 +17,8 @@ import pyfits
 import healpy as hp
 
 
-# In[32]:
-
 """
+Updated April 16, 2018
 Follow convention of Ken Osato: Use reduced quadropole moment to find axis ratio of ellipsoidal cluster
 1. Project onto principle axes spitted out by quadropole tensor
 2. Do not remove particles. Particles chosen for those inside Rvir
@@ -29,7 +28,7 @@ Follow convention of Ken Osato: Use reduced quadropole moment to find axis ratio
 Returns:
 converge -- Boolean
 [a,b,c] -- normalized major, intermediate, minor axes lengths (only ratio matters in reduced tensor)
-[lx, ly, lz] -- direction of minor, intermediate, major (NOT WORKING YET, they output [1,0,0], [0,1,0],[0,0,1])
+[lx, ly, lz] -- direction of minor, intermediate, major in original (non-rotated) basis
 """
 
 def quad_moment(ptcl_coord, centr, rvir):
