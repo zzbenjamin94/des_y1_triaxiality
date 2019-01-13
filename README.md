@@ -1,6 +1,7 @@
 # DES Y3 Cluster Triaxiality
 #### Zhuowen Zhang 
-#### README file updated Sept. 14, 2018
+#### README file updated Oct. 8, 2018
+#### Last update: included Halo_Run catalog
 
 ## Datasets
 ###### * darksky particle catalog
@@ -25,6 +26,16 @@
         *mass resolution of at z < 0.34; < M < at 0.34 < z < 0.90 
         *high z ptcls at NERSC (neeed to ask Joe to put on your scratch space, keep for 3 months) /project/projectdirs/des/jderose/BCC/Chinchilla/Herd/Chinchilla-0/Lb1050/output/pixlc
         *low z ptcls at NERSC: /project/projectdirs/des/jderose/BCC/Chinchilla/Herd/Chinchilla-0/Lb1050/output/pixlc
+        
+        
+###### *Halo_Run
+        *`/nfs/slac/des/fs1/g/sims/erykoff/clusters/mocks/Buzzard/buzzard-1.6/des-y3a1/redmapper_v6.4.20/run_halo_0/`
+        *NERSC: /global/cscratch1/sd/haoyiwu/hwu/buzzard/run_halo_0/buzzard-0_1.6_y3_run_halos_lambda_chisq_chto.fit
+        
+        
+###### *Matteo Projection 
+        *NERSC: /global/cscratch1/sd/haoyiwu/hwu/matteo/mock_SDSS_PlM_logNorm_lM_Simet_lobg5.fit
+        
         
 ## Tools and Configuration
 * __setup__: need to append the DES_Galaxy_Cluster folder path to sys.path to call relative imports of .py files in the subfolders. 

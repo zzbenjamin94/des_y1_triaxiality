@@ -15,7 +15,20 @@ def data_home_dir():
     if not os.path.exists(datahomedir):
         os.makedirs(datahomedir)
     return datahomedir
+
+def image_home_dir():
+    imghomedir = os.path.join(notes_home_dir(), 'img/')
+    if not os.path.exists(imghomedir):
+        os.makedirs(imghomedir)
+    return imghomedir
     
+def sdss_filter_dir():
+    filterdir = os.path.join(data_home_dir(), 'sdss_filters/')
+    if not os.path.exists(filterdir):
+        os.makedirs(filterdir)
+    return filterdir
+
+
     
 if __name__ == '__main__':
     homedir = home_dir()

@@ -72,56 +72,39 @@ halos_shape record array filename string
 
 Output
 ---------
+halos_ID: Buzzard ID of halos
 q: minor-major axis ratio
 s: intermediate-major axis ratio
 cos_i: absolute value of the cosine of major axis with LOS. 
-halos_M: mass of halos in Msun/h
 halos_ID: Buzzard ID of halos
 
 #!!TODO: How do you optionally output richness of the halos?
 """
 
-def read_shape_param(halos_shape, verbose = False):    
+def read_shape_param(halos_shape, convcut=True, verbose = False):    
     #input an structured array
     assert type(halos_shape)==np.ndarray, "Must input a record array" 
-           
-    #IO Errors and Exceptions
-    #arr_names = ('halos_ID', 'richness', 'M200b', 'Rvir', 'redshift',\
-    #        'axes_len', 'axes_dir', 'halos_dir', 'halos_RA', 'halos_DEC', 'converge')
-    #assert halos_shape.dtype.names == arr_names, "Array not in the right format"
     
     #Convergence and mass cuts
-    #check properties of halos with shapes not converged
-    ind_not_conv = np.where(halos_shape['converge'] == False)
-    #print 'Positions not converge:', np.where(halos_shape['converge'] != 1)
-    conv_cut = np.where(halos_shape['converge']==True)
-    halos_shape = halos_shape[conv_cut]
-    #print 'After cut positions not converged:', np.where(halos_shape['converge'] != 1)
-    m_cut = np.where(halos_shape['M200b'] < 1e15)
-    halos_shape = halos_shape[m_cut]
+    if convcut:
+        conv_cut = np.where(halos_shape['converge']==True)
+        halos_shape = halos_shape[conv_cut]
     halos_num = len(halos_shape)
     
     if verbose == True:
         print "Created from {} record array".format(halos_shape)
-        print 'Number of halos after cuts is ', halos_num
+        print 'Number of halos after convergence cut is ', halos_num
       
-
-
     #Relevant quantities to extract and plot
     ########################################
-
-    #Axis len and dir
     halos_ID = halos_shape['halos_ID']
-    halos_RA = halos_shape['halos_RA']; halos_DEC = halos_shape['halos_DEC']
-    halos_coord = np.array([halos_RA, halos_DEC]).T
+    
+    #Axis len and dir
     axes_len = halos_shape['axes_len']
     axes_dir = halos_shape['axes_dir']
     halos_dir = halos_shape['halos_dir']
     q = axes_len[:,2]/axes_len[:,0]
     s = axes_len[:,1]/axes_len[:,0]
-
-    #Mass
-    halos_M = halos_shape['M200b']
 
     #Orientation PDF
     major_dir = axes_dir[:,2,:]
@@ -134,17 +117,8 @@ def read_shape_param(halos_shape, verbose = False):
         major_mag = np.linalg.norm(major_dir[i]);
         cos_i[i] = np.abs(np.dot(major_dir[i],halos_dir[i])/(halos_dir_mag * major_mag))
     
-    #Depending on halo_shape format return different outputs
-    try:
-        richness = halos_shape['richness']
-    except:
-        return q, s, cos_i, halos_M, halos_ID, halos_RA, halos_DEC
-    else:
-        return q, s, cos_i, halos_M, halos_ID, halos_RA, halos_DEC, richness
+    return halos_ID, q, s, cos_i
     
-    
-
-
 
 # ### Testing
 
@@ -161,10 +135,9 @@ if __name__=="__main__":
         print "Number of halos is {}".format(len(halos_shape_noadapt))
 
     
-    q, s, halos_M, cos_i = read_shape_param(halos_shape_noadapt)
+    q, s, cos_i = read_shape_param(halos_shape_noadapt)
     print "q is ", q[0:10]
     print "s is ", s[0:10]
-    print "halos_M is ", halos_M[0:10]
     print "cos_i is ", cos_i[0:10]
     
     

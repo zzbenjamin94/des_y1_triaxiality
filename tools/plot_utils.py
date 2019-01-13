@@ -6,8 +6,7 @@ from matplotlib.colors import LogNorm
 from astroML.datasets import fetch_sdss_spectrum
 from scipy.interpolate import interp1d
 from scipy.integrate import simps
-
-from setup import image_home_dir
+from setup.setup import image_home_dir
 from fetch_sdss_image import fetch_sdss_image
 from PIL import Image
 

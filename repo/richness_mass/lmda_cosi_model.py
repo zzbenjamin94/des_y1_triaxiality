@@ -4,32 +4,51 @@
 # # PYMC models for richness-mass relation
 # ### Zhuowen Zhang
 # ### Created Aug 27, 2018
+# ### Nov. 20, 2018: For hrun, with lambda cut > 5, need to renormalize. Adjusted for hrun of lmda>5. Make cut flexible in future. 
 
 # In[4]:
 
 import numpy as np
-
+import sys
 # import pyplot and set some parameters to make plots prettier
 import matplotlib.pyplot as plt
+sys.path.append('/home/zzbenjamin94/Desktop/Astronomy/Research/DES_Galaxy_Cluster')
+from tools.setup.setup import tools_home_dir, home_dir
+homedir = home_dir()
+toolsdir = tools_home_dir()
+shapedir = home_dir()+'output/buzzard/halo_shape/'
+#tpltdir = home_dir() + 'output/lmda_cosi_chains/'
+
 from tools.plot_utils import plot_pretty
+from tools.halo_mass_template import redMaPPer_hmf, hrun_hmf
 plot_pretty()
 get_ipython().magic(u'matplotlib inline')
 
-import sys
-sys.path.append('/home/zzbenjamin94/Desktop/Astronomy/Research/DES_Galaxy_Cluster')
 from mpl_toolkits.mplot3d import Axes3D
-from tools.setup.setup import tools_home_dir, home_dir
 import pyfits
-shapedir = home_dir()+'output/buzzard/halo_shape/'
-tpltdir = home_dir() + 'output/lmda_cosi_chains/'
-toolsdir = tools_home_dir()
-homedir = home_dir()
 
 import astropy.io.fits as pyfits
 import ConfigParser
 import healpy as hp
 import treecorr
 import os
+
+from pymc import *
+from pymc import DiscreteUniform, Normal, uniform_like, TruncatedNormal
+from pymc import Metropolis
+from numpy.random import randn
+import matplotlib.pyplot as plt
+from scipy.special import erf
+from chainconsumer import ChainConsumer
+
+#Define mass range and hmf for tabulated hmf
+lnM_min = 13.5*np.log(10); lnM_max = 15.5*np.log(10)
+lnM = np.linspace(lnM_min, lnM_max, 1000)
+delta_lnM = lnM[1]-lnM[0]
+#Halo mass function
+#lnM_density, lnM_bin_cen = redMaPPer_hmf(lnM, lnM_min=lnM_min, lnM_max = lnM_max)
+lnM_density, lnM_bin_cen = hrun_hmf(lnM, lnM_min=lnM_min, lnM_max = lnM_max, num_bins = 200)
+
 
 
 # ## Models for richness-mass from the pymc package
@@ -65,7 +84,7 @@ import os
 # 
 
 # ### Model 1
-# Find global A, B, and sigma0 across all cosine bins. 
+# Find global A, B, and sigma0. This essentially becomes a three parameter model if you input the data iteratively from different bins. It then finds the A, B, sigma0 for each bin. 
 
 # In[1]:
 
@@ -74,27 +93,21 @@ def make_model(lnls, lnms):
     B=Uniform('B', lower=0.0001, upper=10 )
     sig0=Uniform('sigma0', lower=0.001, upper=10.0 )   
     
-    #Halo mass function
-    lnM_min = 13*np.log(10); lnM_max = 15.1*np.log(10)
-    lnM = np.linspace(lnM_min, lnM_max, 1000)
-    lnM_density = redMaPPer_hmf(lnM, lnM_min=lnM_min, lnM_max = lnM_max)
-    delta_lnM = lnM[1]-lnM[0]
-    
     #Use table to approximate integration. Speed things up
-    def norm_20_tab(A,B,sig0):         
+    def norm_5_tab(A,B,sig0):         
         mu_lnl=np.log(A)+B*(lnM-14.0*np.log(10.0)) 
         var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
 
-        norm_20 = np.sum((0.5-0.5*erf((np.log(20) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
-        return norm_20
+        norm = np.sum((0.5-0.5*erf((np.log(5) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
+        return norm
 
     @pymc.stochastic(observed=True, plot=False)
     def log_prob(value=0, A=A, B=B, sig0=sig0):       
         mu_lnl=np.log(A)+B*(lnms-14.0*np.log(10.0)) 
         var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
 
-        norm_20 = norm_20_tab(A,B,sig0)
-        log_prs=-0.5*(lnls-mu_lnl)**2/var_lnl -0.5*np.log(var_lnl) - np.log(norm_20) 
+        norm = norm_5_tab(A,B,sig0)
+        log_prs=-0.5*(lnls-mu_lnl)**2/var_lnl -0.5*np.log(var_lnl) - np.log(norm) 
 
         tot_logprob=np.sum(log_prs)
         return tot_logprob
@@ -126,17 +139,12 @@ def make_model2(lnls, lnms):
     B=Uniform('B', lower=0.0001, upper=10 )
     sig0=Uniform('sigma0', lower=0.001, upper=10.0 )   
     
-    #Halo mass function
-    lnM_min = 13*np.log(10); lnM_max = 15.1*np.log(10)
-    lnM_tab = np.linspace(lnM_min, lnM_max, 1000); delta_lnM = lnM_tab[1]-lnM_tab[0]
-    lnM_density = redMaPPer_hmf(lnM_tab)
-    
     #Use table to approximate integration. Speed things up
-    def norm_20_tab(A_i,B,sig0):       
-        mu_lnl=np.log(A_i)+B*(lnM_tab-14.0*np.log(10.0)) 
+    def norm_5_tab(A_i,B,sig0):       
+        mu_lnl=np.log(A_i)+B*(lnM-14.0*np.log(10.0)) 
         var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
-        norm_20 = np.sum((0.5-0.5*erf((np.log(20) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
-        return norm_20
+        norm = np.sum((0.5-0.5*erf((np.log(5) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
+        return norm
 
     @pymc.stochastic(observed=True, plot=False)
     def log_prob(value=0, A=A, B=B, sig0=sig0):      
@@ -144,8 +152,8 @@ def make_model2(lnls, lnms):
         for i in range(num_bins):
             mu_lnl=np.log(A[i])+B*(lnms[i]-14.0*np.log(10.0)) #changed May 1, 2018
             var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
-            norm_20 = norm_20_tab(A[i],B,sig0)
-            log_prs=-0.5*(lnls[i]-mu_lnl)**2/var_lnl -0.5*np.log(var_lnl) - np.log(norm_20) 
+            norm = norm_5_tab(A[i],B,sig0)
+            log_prs=-0.5*(lnls[i]-mu_lnl)**2/var_lnl -0.5*np.log(var_lnl) - np.log(norm) 
             tot_logprob += np.sum(log_prs)
             
         return tot_logprob
@@ -161,34 +169,25 @@ def make_model2(lnls, lnms):
 
 def make_model3(lnls, lnms, B, sig0):
     A=Uniform('A', lower=0.1, upper=100 )
-    
-    #Halo mass function
-    lnM_min = 13*np.log(10); lnM_max = 15.1*np.log(10)
-    lnM_tab = np.linspace(lnM_min, lnM_max, 1000); delta_lnM = lnM_tab[1]-lnM_tab[0]
-    lnM_density = redMaPPer_hmf(lnM_tab)
    
     #Use table to approximate integration. Speed things up
-    def norm_20_tab(A):       
-        mu_lnl=np.log(A)+B*(lnM_tab-14.0*np.log(10.0)) 
+    def norm_5_tab(A):       
+        mu_lnl=np.log(A)+B*(lnM-14.0*np.log(10.0)) 
         var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
-        norm_20 = np.sum((0.5-0.5*erf((np.log(20) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
-        return norm_20
+        norm = np.sum((0.5-0.5*erf((np.log(5) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
+        return norm
 
     @pymc.stochastic(observed=True, plot=False)
     def log_prob(value=0, A=A, B=B, sig0=sig0):
-        lnM_min = 13*np.log(10); lnM_max = 15.1*np.log(10)
         mu_lnl=np.log(A)+B*(lnms-14.0*np.log(10.0)) 
         var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
 
-        norm_20 = norm_20_tab(A)
-        log_prs=-0.5*(lnls-mu_lnl)**2/var_lnl -0.5*np.log(var_lnl) - np.log(norm_20) 
+        norm = norm_5_tab(A)
+        log_prs=-0.5*(lnls-mu_lnl)**2/var_lnl -0.5*np.log(var_lnl) - np.log(norm) 
 
         tot_logprob=np.sum(log_prs)
         return tot_logprob
     return locals()
-
-
-# In[ ]:
 
 
 
