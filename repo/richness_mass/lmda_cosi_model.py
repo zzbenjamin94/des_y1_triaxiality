@@ -7,7 +7,7 @@
 # ### Nov. 20, 2018: For hrun, with lambda cut > 5, need to renormalize. Adjusted for hrun of lmda>5. Make cut flexible in future. 
 
 # In[4]:
-
+import pickle
 import numpy as np
 import sys
 # import pyplot and set some parameters to make plots prettier
@@ -42,12 +42,14 @@ from scipy.special import erf
 from chainconsumer import ChainConsumer
 
 #Define mass range and hmf for tabulated hmf
-lnM_min = 13.5*np.log(10); lnM_max = 15.5*np.log(10)
+lnM_min = 13.0*np.log(10); lnM_max = 15.5*np.log(10)
 lnM = np.linspace(lnM_min, lnM_max, 1000)
 delta_lnM = lnM[1]-lnM[0]
 #Halo mass function
-#lnM_density, lnM_bin_cen = redMaPPer_hmf(lnM, lnM_min=lnM_min, lnM_max = lnM_max)
-lnM_density, lnM_bin_cen = hrun_hmf(lnM, lnM_min=lnM_min, lnM_max = lnM_max, num_bins = 200)
+lmda_cut = 20 #lowest lmda
+
+##!!Important: Need to choose the correct mass function!!##
+#lnM_density, lnM_bin_cen = hrun_hmf(lnM, lnM_min=lnM_min, lnM_max = lnM_max, num_bins = 200)
 
 
 
@@ -88,17 +90,17 @@ lnM_density, lnM_bin_cen = hrun_hmf(lnM, lnM_min=lnM_min, lnM_max = lnM_max, num
 
 # In[1]:
 
-def make_model(lnls, lnms):
+def make_model(lnM_density, lnls, lnms):
     A=Uniform('A', lower=0.1, upper=100 )
     B=Uniform('B', lower=0.0001, upper=10 )
     sig0=Uniform('sigma0', lower=0.001, upper=10.0 )   
     
     #Use table to approximate integration. Speed things up
-    def norm_5_tab(A,B,sig0):         
+    def norm_tab(A,B,sig0):         
         mu_lnl=np.log(A)+B*(lnM-14.0*np.log(10.0)) 
         var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
 
-        norm = np.sum((0.5-0.5*erf((np.log(5) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
+        norm = np.sum((0.5-0.5*erf((np.log(lmda_cut) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
         return norm
 
     @pymc.stochastic(observed=True, plot=False)
@@ -106,7 +108,7 @@ def make_model(lnls, lnms):
         mu_lnl=np.log(A)+B*(lnms-14.0*np.log(10.0)) 
         var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
 
-        norm = norm_5_tab(A,B,sig0)
+        norm = norm_tab(A,B,sig0)
         log_prs=-0.5*(lnls-mu_lnl)**2/var_lnl -0.5*np.log(var_lnl) - np.log(norm) 
 
         tot_logprob=np.sum(log_prs)
@@ -119,7 +121,7 @@ def make_model(lnls, lnms):
 
 # In[2]:
 
-def make_model2(lnls, lnms):
+def make_model2(lnM_density, lnls, lnms):
     #Extract number of bins
     assert len(lnls)==len(lnms), "Number of bins different for lnls and lnms"
     num_bins = len(lnls)
@@ -140,10 +142,10 @@ def make_model2(lnls, lnms):
     sig0=Uniform('sigma0', lower=0.001, upper=10.0 )   
     
     #Use table to approximate integration. Speed things up
-    def norm_5_tab(A_i,B,sig0):       
+    def norm_tab(A_i,B,sig0):       
         mu_lnl=np.log(A_i)+B*(lnM-14.0*np.log(10.0)) 
         var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
-        norm = np.sum((0.5-0.5*erf((np.log(5) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
+        norm = np.sum((0.5-0.5*erf((np.log(lmda_cut) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
         return norm
 
     @pymc.stochastic(observed=True, plot=False)
@@ -152,7 +154,7 @@ def make_model2(lnls, lnms):
         for i in range(num_bins):
             mu_lnl=np.log(A[i])+B*(lnms[i]-14.0*np.log(10.0)) #changed May 1, 2018
             var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
-            norm = norm_5_tab(A[i],B,sig0)
+            norm = norm_tab(A[i],B,sig0)
             log_prs=-0.5*(lnls[i]-mu_lnl)**2/var_lnl -0.5*np.log(var_lnl) - np.log(norm) 
             tot_logprob += np.sum(log_prs)
             
@@ -167,14 +169,14 @@ def make_model2(lnls, lnms):
 
 # In[3]:
 
-def make_model3(lnls, lnms, B, sig0):
+def make_model3(lnM_density, lnls, lnms, B, sig0):
     A=Uniform('A', lower=0.1, upper=100 )
    
     #Use table to approximate integration. Speed things up
-    def norm_5_tab(A):       
+    def norm_tab(A):       
         mu_lnl=np.log(A)+B*(lnM-14.0*np.log(10.0)) 
         var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
-        norm = np.sum((0.5-0.5*erf((np.log(5) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
+        norm = np.sum((0.5-0.5*erf((np.log(lmda_cut) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
         return norm
 
     @pymc.stochastic(observed=True, plot=False)
@@ -182,7 +184,7 @@ def make_model3(lnls, lnms, B, sig0):
         mu_lnl=np.log(A)+B*(lnms-14.0*np.log(10.0)) 
         var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
 
-        norm = norm_5_tab(A)
+        norm = norm_tab(A)
         log_prs=-0.5*(lnls-mu_lnl)**2/var_lnl -0.5*np.log(var_lnl) - np.log(norm) 
 
         tot_logprob=np.sum(log_prs)

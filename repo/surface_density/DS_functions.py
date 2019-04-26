@@ -29,7 +29,7 @@ import pyfits
 sys.path.append('/home/zzbenjamin94/Desktop/Astronomy/Research/DES_Galaxy_Cluster')
 from tools.setup.setup import tools_home_dir, home_dir
 shapedir = home_dir()+'output/buzzard/halo_shape/'
-tpltdir = home_dir() + 'output/lmda_cosi_chains/'
+tpltdir = home_dir() + 'output/lmda_cosi_chains/redM_Buzzard/'
 toolsdir = tools_home_dir()
 homedir = home_dir()
 

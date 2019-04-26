@@ -26,7 +26,7 @@ import healpy as hp
 import treecorr
 import os
 
-datadir = home_dir()+'output/lmda_cosi_chains/hrun/'
+datadir = home_dir()+'output/lmda_cosi_chains/miscentering/'
 
 #MCMC Template Building
 import numpy as np
@@ -51,10 +51,12 @@ for i, cosi_bin in enumerate(cosi_bins):
     cosi_pos = np.where((cos_i >= cosi_bin_min) & (cos_i < cosi_bin_max))
     cosi_bins_ind.append(cosi_pos)
 '''    
+
+#Contour plot for the models. Model1
 for i in mcmc_filestr:
 	cosi_bin_min = cosi_bins[i][0]; cosi_bin_max = cosi_bins[i][1]
-	mcmc_folder = datadir + 'p_lmda_cosi_'+str(i)+'_model1'
-	As=np.genfromtxt(mcmc_folder+'/Chain_0/A.txt')
+	mcmc_folder = datadir + 'p_lmda_cosi_{}'.format(i)+'_model1'
+	As=np.genfromtxt(mcmc_folder+'/Chain_0/A.txt'.format(i))
 	Bs=np.genfromtxt(mcmc_folder+'/Chain_0/B.txt')
 	sig0s=np.genfromtxt(mcmc_folder+'/Chain_0/sigma0.txt')
 	print "mean and stdev for A{}".format(i), np.mean(As), sem(As)
@@ -64,9 +66,9 @@ for i in mcmc_filestr:
 	# plot the parameter constraints
 	c = ChainConsumer()
 	data=np.vstack( (As, Bs, sig0s) ).T
-    #data = As
+	#data = As
 	c.add_chain(data, parameters=[r"$A_{}$".format(i), r"$B$", r"$\sigma_0$"], \
-                name=r'Template for $cos(i)\in[%.1f, %.1f)$'%(cosi_bin_min, cosi_bin_max))
+			name=r'Template for $cos(i)\in[%.1f, %.1f)$'%(cosi_bin_min, cosi_bin_max))
 	c.configure(statistics="max_central",rainbow=True, linestyles=[":"], shade=[True], shade_alpha=[0.5])
 	c.plotter.plot(display=True, figsize="column")
 plt.show()

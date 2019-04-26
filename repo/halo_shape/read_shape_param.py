@@ -83,7 +83,7 @@ halos_ID: Buzzard ID of halos
 
 def read_shape_param(halos_shape, convcut=True, verbose = False):    
     #input an structured array
-    assert type(halos_shape)==np.ndarray, "Must input a record array" 
+    assert type(halos_shape)==np.ndarray, "Must input a nd.array" 
     
     #Convergence and mass cuts
     if convcut:
