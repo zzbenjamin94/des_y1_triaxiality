@@ -34,22 +34,58 @@ toolsdir = tools_home_dir()
 homedir = home_dir()
 
 
-# ### ln($\Delta\Sigma$) ratio template (from Heidi Wu)
+###Import template binned by mass and redshift. From Heidi Wu. 
+ds_tplt_dir = home_dir()+'output/deltasigma/'
+ds_tplt_file = ds_tplt_dir + 'fit_cauchy_sqr_errorbar.dat'
+ds_tplt = np.genfromtxt(ds_tplt_file, unpack=True)
+ds_tplt = ds_tplt.reshape(12, 4, 4)
 
-# In[5]:
 
 '''
 Cauchy function fit for the DeltaSigma ratio including effects of Triaxiality. Template produced by Heidi
 mu: cos(i) as array in range 0-1
 x: = ln(rp) rp units of Mpc/h.
+z: redshift
+m: mass M200b/h in M_sun/h units
+
+Default set to lowest redshift and mass bins.
 '''
-def lnDS_ratio(mu, x):
-    A0 =-0.191; A1 = 0.182; A2 = -0.191; A3 = 0.627; x0 = 0.632; gamma = 1.634 
+
+'''
+Cauchy function fit for the DeltaSigma ratio including effects of Triaxiality. Template produced by Heidi
+mu: cos(i) as array in range 0-1
+x: = ln(rp) rp units of Mpc/h.
+z: redshift
+m: mass M200b/h in M_sun/h units
+
+Default set to lowest redshift and mass bins.
+'''
+
+def lnDS_ratio(mu, x, z=0, m=0):
+    global ds_tplt
+    z_min = ds_tplt[0]; z_max = ds_tplt[1]
+    m_min = ds_tplt[2]; m_max = ds_tplt[3]
+    
+    z_ind = np.searchsorted(z_max[:,0], z) #Controls columns
+    m_ind = np.searchsorted(m_max[0,:], m) #controls the rows
+    
+    #if higher than max value
+    if z_ind == len(z_max[:,0]): z_ind -= 1
+    if m_ind == len(m_max[:,0]): m_ind -= 1
+    
+    #Selecting parameters from bin
+    A0 = ds_tplt[4][m_ind, z_ind]
+    A1 = ds_tplt[5][m_ind, z_ind]
+    A2 = ds_tplt[6][m_ind, z_ind]
+    A3 = ds_tplt[7][m_ind, z_ind]
+    x0 = ds_tplt[8][m_ind, z_ind]
+    gamma = ds_tplt[9][m_ind, z_ind]
+    
+    #print A0, A1, A2, A3, x0, gamma
+    
     Ac_cosi = A0 + A1 * mu  + A2 * mu**2 + A3 * mu**3
     lnDS_ratio = Ac_cosi*(1. - 1. / ((x - x0)**2 + gamma))
     return lnDS_ratio
-
-
 # ### Find best fit model parameters
 
 # #### Find lnA parameter

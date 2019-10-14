@@ -82,7 +82,7 @@ print 'shapecut for hrun completed in halo_mass_template'
 hrun_mass = hrun_data['M200B']; hrun_lmda = hrun_data['LAMBDA_CHISQ']
 hrun_lnM = np.log(hrun_mass)
 lmda_max = np.max(hrun_lmda)
-lmda_bins = [[5,30],[30,50],[50, lmda_max]]
+lmda_bins = [[20,30],[30,50],[50, lmda_max]]
 num_lmda_bins = len(lmda_bins)
 lmda_bins_ind = halo_bin_stat(hrun_lmda, lmda_bins)
 hrun_lnM_lmda_binned = np.zeros_like(lmda_bins_ind)

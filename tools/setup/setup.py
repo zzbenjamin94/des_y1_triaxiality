@@ -16,6 +16,13 @@ def data_home_dir():
         os.makedirs(datahomedir)
     return datahomedir
 
+def bigdata_home_dir():
+    #uses the /data dir in your office workstation with ~800 GB of space
+    bigdata_dir = '/data/DES/Cluster/'
+    if not os.path.exists(bigdata_dir):
+        os.makedirs(bigdata_dir)
+    return bigdata_dir
+
 def image_home_dir():
     imghomedir = os.path.join(notes_home_dir(), 'img/')
     if not os.path.exists(imghomedir):
