@@ -17,10 +17,11 @@ from tools.setup.setup import tools_home_dir, home_dir
 homedir = home_dir()
 toolsdir = tools_home_dir()
 shapedir = home_dir()+'output/buzzard/halo_shape/'
+
 #tpltdir = home_dir() + 'output/lmda_cosi_chains/'
 
 from tools.plot_utils import plot_pretty
-from tools.halo_mass_template import redMaPPer_hmf, hrun_hmf
+from tools.halo_mass_template import catalog_hmf
 plot_pretty()
 get_ipython().magic(u'matplotlib inline')
 
@@ -42,55 +43,19 @@ from scipy.special import erf
 from chainconsumer import ChainConsumer
 
 #Define mass range and hmf for tabulated hmf
-lnM_min = 13.0*np.log(10); lnM_max = 15.5*np.log(10)
+lnM_min = 13*np.log(10); lnM_max = 15.5*np.log(10)
 lnM = np.linspace(lnM_min, lnM_max, 1000)
+M = np.exp(lnM)
 delta_lnM = lnM[1]-lnM[0]
 #Halo mass function
 lmda_cut = 20 #lowest lmda
 
 ##!!Important: Need to choose the correct mass function!!##
-#lnM_density, lnM_bin_cen = hrun_hmf(lnM, lnM_min=lnM_min, lnM_max = lnM_max, num_bins = 200)
+lnM_density, lnM_bin_cen = catalog_hmf(lnM, lnM_min=lnM_min, lnM_max = lnM_max, num_bins = 50)
 
 
-
-# ## Models for richness-mass from the pymc package
-# 
-
-# Assume a linear relation in richness-mass in the log-log plane, and with a log-normal scatter. Free parameters are A the intercept, B the slope, and sig0 the instrinsic scatter.
-# 
-# The truncated Gaussian at $\lambda = 20$ is normalized with the mass function from the random halo catalog in the Buzzard simulations. 
-# 
-# The linear relation between richness and mass is
-# $$
-# \mu_{\log(\lambda)} = \log{A} + B*(\log{M} - \log{10^{14}})
-# $$
-# 
-# with instrinsic scatter
-# $$
-# \sigma^2(\log{\lambda}) = \sigma_0^2 + \frac{\exp{\mu}-1}{2\exp{\mu}}.
-# $$
-# 
-# The posterior probability is 
-# $$
-# P(A,B,\sigma|\lambda, M) = \frac{1}{N(A,B,\sigma, M)}P(\lambda, M | A, B, \sigma) P (A, B, \sigma),
-# $$
-# 
-# with normalization factor
-# $$
-# N(A, B, \sigma, M) = \int dM \int_{20}^{+\infty} d \lambda P(\lambda| M, A, B, \sigma) P(M)
-# = \int dM(0.5 - 0.5 \mathrm{erf}\big(\frac{\mathrm{ln} 20 - \mu{(\mathrm{ln} \lambda)}}{\sqrt{2(\sigma_0^2+ \frac{\mathrm{exp} ( \mu{(\mathrm{ln} \lambda)})-1}{\mathrm{exp} ( 2\mu{(\mathrm{ln} \lambda)})})}} \big) P(M).
-# $$
-# 
-# $P(M)$ is sampled from the randomly selected halo (see code tools.halo_mass_template) and integration is done by tabulating P(M) into 100 bins. 
-# 
-# 
-
-# ### Model 1
-# Find global A, B, and sigma0. This essentially becomes a three parameter model if you input the data iteratively from different bins. It then finds the A, B, sigma0 for each bin. 
-
-# In[1]:
-
-def make_model(lnM_density, lnls, lnms):
+def make_model(lnls, lnms):
+    global lnM_density
     A=Uniform('A', lower=0.1, upper=100 )
     B=Uniform('B', lower=0.0001, upper=10 )
     sig0=Uniform('sigma0', lower=0.001, upper=10.0 )   
@@ -100,7 +65,7 @@ def make_model(lnM_density, lnls, lnms):
         mu_lnl=np.log(A)+B*(lnM-14.0*np.log(10.0)) 
         var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
 
-        norm = np.sum((0.5-0.5*erf((np.log(lmda_cut) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
+        norm = np.sum((0.5-0.5*erf((np.log(lmda_cut) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM/M)
         return norm
 
     @pymc.stochastic(observed=True, plot=False)
@@ -121,7 +86,8 @@ def make_model(lnM_density, lnls, lnms):
 
 # In[2]:
 
-def make_model2(lnM_density, lnls, lnms):
+def make_model2(lnls, lnms):
+    global lnM_density
     #Extract number of bins
     assert len(lnls)==len(lnms), "Number of bins different for lnls and lnms"
     num_bins = len(lnls)
@@ -145,7 +111,7 @@ def make_model2(lnM_density, lnls, lnms):
     def norm_tab(A_i,B,sig0):       
         mu_lnl=np.log(A_i)+B*(lnM-14.0*np.log(10.0)) 
         var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
-        norm = np.sum((0.5-0.5*erf((np.log(lmda_cut) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
+        norm = np.sum((0.5-0.5*erf((np.log(lmda_cut) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM/M)
         return norm
 
     @pymc.stochastic(observed=True, plot=False)
@@ -169,14 +135,15 @@ def make_model2(lnM_density, lnls, lnms):
 
 # In[3]:
 
-def make_model3(lnM_density, lnls, lnms, B, sig0):
+def make_model3(lnls, lnms, B, sig0):
+    global lnM_density
     A=Uniform('A', lower=0.1, upper=100 )
    
     #Use table to approximate integration. Speed things up
     def norm_tab(A):       
         mu_lnl=np.log(A)+B*(lnM-14.0*np.log(10.0)) 
         var_lnl=sig0**2+(np.exp(mu_lnl)-1)/(np.exp(2*mu_lnl))
-        norm = np.sum((0.5-0.5*erf((np.log(lmda_cut) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM)
+        norm = np.sum((0.5-0.5*erf((np.log(lmda_cut) - mu_lnl)/np.sqrt(2.0*var_lnl)))*lnM_density*delta_lnM/M)
         return norm
 
     @pymc.stochastic(observed=True, plot=False)
